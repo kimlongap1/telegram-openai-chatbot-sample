@@ -9,5 +9,6 @@ npm install
 ```
 
 Run server
-
+```
  node tele-bot.js
+```
