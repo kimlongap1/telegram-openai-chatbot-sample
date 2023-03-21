@@ -168,7 +168,7 @@ function getDataFromCache(botMessage, dataCache) {
     try {
         setTimeout(() => {
             try {
-                console.log('Cache expired. Deleting data...');
+                console.log('Cache expired. Deleting data...' + groupConverstationId);
                 delete dataCache[groupConverstationId];
             } catch (error) {
                 console.log("error when setting cache time out " + error);
