@@ -9,7 +9,7 @@ const axios = require('axios');
 
 const { Configuration, OpenAIApi } = require("openai");
 const configuration = new Configuration({
-    apiKey: "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",
+    apiKey: "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",
 });
 const openai = new OpenAIApi(configuration);
 
@@ -27,7 +27,7 @@ bot.on('message', async (msg) => {
         //perform conversation as normal
         const replyToUser =  msg.reply_to_message.from.username;
         if(replyToUser == "Phu_2023_bot"){
-            const promt = getDataFromCache(msg, cache);
+            const promt = getDataFromCache(msg, cache,'user',msg.text);
             performOpenAiChatCompletion(msg,cache,promt);
         }
     }
@@ -60,7 +60,7 @@ async function handleMessage(msg, dataCache) {
             console.log(`Arguments: ${args}`);
 
             if (command == "openai") {
-                const promt = getDataFromCache(msg, cache);
+                const promt = getDataFromCache(msg, cache,'user',msg.text);
                 performOpenAiChatCompletion(msg,cache,promt);
 
 
@@ -118,14 +118,16 @@ async function performOpenAiChatCompletion(msg, dataCache , prompt){
 
     const data = {
         model: "gpt-3.5-turbo",
-        messages: [{ "role": "user", "content": prompt }],
+        messages: prompt,
         max_tokens: 500,
-        temperature: 0.1
+        temperature: 0.1,
+        stop : ["/openai"]
 
     }
     console.log("input to send to openai %j", data);
     // Send the request to the API
-
+  
+   
     const completionObj = await openai.createChatCompletion(data);
     console.log("output %j", completionObj);
     const responseText = completionObj.data.choices[0].message.content;
@@ -147,23 +149,29 @@ async function performOpenAiChatCompletion(msg, dataCache , prompt){
             reply_to_message_id: messageId
         });
     }
+    //add result into cache
+    getDataFromCache(msg,cache,'system',responseText);
 
 
 
 }
-function getDataFromCache(botMessage, dataCache) {
+ 
+function getDataFromCache(botMessage, dataCache, roleInput, textInput) {
     const groupConverstationId = botMessage.chat.id + "_" + botMessage.from.first_name + botMessage.from.last_name;
-    const messageText = botMessage.text;
-    let output = "";
+    const messageText = textInput;
+    let output = [];
     console.log("cache " + dataCache[groupConverstationId]);
     if (dataCache[groupConverstationId] != undefined) {
         console.log('Data fetched from cache!');
         output = dataCache[groupConverstationId];
     }
-    dataCache[groupConverstationId]
-    output = output + "\n" + messageText;
+   
+    const newCommand = { role: roleInput, content: messageText };
+    output.push(newCommand);
+    console.log(  + output);
+    
     //update it into cache
-
+ 
     dataCache[groupConverstationId] = output;
     try {
         setTimeout(() => {
