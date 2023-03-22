@@ -1,19 +1,27 @@
+const { processToAI, getDataFromCache, processImage } = require('./open-ai-util');
 const express = require('express');
 const bodyParser = require('body-parser');
 const axios = require('axios');
 const morgan = require('morgan');
 const app = express();
+require('dotenv').config();
 const port = process.env.PORT || 3000;
 
+
+const whatsappToken = process.env.WHATSAPP_SECRET;
+console.log(whatsappToken);
 // Set up the Facebook Graph API endpoint and access token
 const endpoint = 'https://graph.facebook.com/v16.0/102189209500589/messages';
-const accessToken = 'EAAKQ2XVxtz8BAFr7XbjxVgT8pmqGOrU1VuaMeP8FkkWtrqjZC6vOZASRBcmfjXkfytlIDKT6KLJnDH6pBAj2ZBNtkCHtK1niZBjQU808QAl5ine8mltmHFFoUFfbZCowXHDd8WEgVjZBhDSq4rZA48J4UIb5NZBRXasLNXJ5IP7hbvzW0aLMN6FX2km9srhCzVoWQ7FWUWwd1hnsn8P5U6NV';
+const accessToken =  whatsappToken;
+
 
 // Middleware to parse incoming request body as JSON
 app.use(bodyParser.json());
 // Log all requests to the console
 app.use(morgan('dev'));
 //verify 
+let cache = {};
+
 // Handle GET requests to the /webhook endpoint
 app.get('/webhook', (req, res) => {
     // Extract verification token and mode from query string parameters
@@ -34,52 +42,48 @@ app.get('/webhook', (req, res) => {
 
 // Set up the webhook endpoint to receive incoming messages from WhatsApp
 app.post('/webhook', (req, res) => {
-    const messageBody = req.body;  // Accessing request body
- 
-    console.log("Object Details:", JSON.stringify(messageBody, null, 2));
+    const whatsappBody = req.body;  // Accessing request body
+
+    console.log("Object Details:", JSON.stringify(whatsappBody, null, 2));
 
     //filter - ignore status message
-    const checkNeedTohandle = isNeedTohandleMessage(messageBody );
-    if(checkNeedTohandle == false){
+    const checkNeedTohandle = isNeedTohandleMessage(whatsappBody);
+    if (checkNeedTohandle == false) {
         res.status(200).send();
         console.log("dont handle this message ");
         return "";
     }
 
-    const senderId = "84398675430";
-    const messageText = "Phu say hi";
+    const messageObj = getMessage(whatsappBody);
+    const senderId = messageObj.from;
+    const userCache = messageObj.from;
+    const prompt = getDataFromCache(userCache, cache, "user", messageObj.text.body);
+    processToAI(prompt).then(openAiResponse => {
+        // Send a response to the incoming message
+        const responseText = openAiResponse.data.choices[0].message.content;
+        const messageData = {
+            messaging_product: 'whatsapp',
+            "recipient_type": "individual",
+            "to": senderId,
+            "type": "text",
+            "text": { // the text object
+                "preview_url": false,
+                "body": responseText
+            }
+        };
 
-    // Send a response to the incoming message
-    const messageData = {
-        messaging_product: 'whatsapp',
-        "recipient_type": "individual",
-        "to": senderId,
-        "type": "text",
-        "text": { // the text object
-            "preview_url": false,
-            "body": messageText
-        }
-    };
-    const data2 = {
-        "messaging_product": "whatsapp",
-        "recipient_type": "individual",
-        "to": "PHONE_NUMBER",
-        "type": "text",
-        "text": { // the text object
-            "preview_url": false,
-            "body": "MESSAGE_CONTENT"
-        }
-    };
-    axios.post(endpoint, messageData, {
-        headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-        }
-    }).then(response => {
-        console.log('Message sent successfully:', response.data);
-    }).catch(error => {
-        console.error('Error sending message:', error.response.data);
-    });
+        axios.post(endpoint, messageData, {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            }
+        }).then(response => {
+            console.log('Message sent successfully:', response.data);
+        }).catch(error => {
+            console.error('Error sending message:', error.response.data);
+        });
+    })
+
 
     // Return a 200 OK response to acknowledge receipt of the incoming message
     res.status(200).send();
@@ -92,26 +96,29 @@ app.listen(port, () => {
 
 function isNeedTohandleMessage(whatsappObj) {
     try {
-        
+
         changes = whatsappObj.entry[0].changes[0].value;
-        console.log("Gia tri changes" ,changes);
-        if(changes.statuses){
+
+        if (changes.statuses) {
             //dont handle status message
             console.log("dont handle status message");
             return false;
         }
-        if(changes.messages){
-            console.log("gia tri " , changes.messages);
-            const type = changes.messages[0].type ;
-            console.log("check type of message "+ type);
-            if(type== 'text'){
+        if (changes.messages) {
+            console.log("gia tri ", changes.messages);
+            const type = changes.messages[0].type;
+            console.log("check type of message " + type);
+            if (type == 'text') {
                 return true;
             }
         }
-         
+
     } catch (error) {
-        console.log("error when determiate what kind of message type to handle " , error)
+        console.log("error when determiate what kind of message type to handle ", error)
     }
-   console.log("no true condition ok, exist faile");
+    console.log("no true condition ok, exist faile");
     return false;
+}
+function getMessage(whatsappObj) {
+    return whatsappObj.entry[0].changes[0].value.messages[0];
 }

@@ -1,13 +1,15 @@
 const { processToAI, getDataFromCache, processImage } = require('./open-ai-util');
 const TelegramBot = require('node-telegram-bot-api');
+
+require('dotenv').config();
+
+const teleToken = process.env.WHATSAPP_SECRET;
 const token = '5853260702:AAHLHkDwFE3qpiX1TE98VJTxAcVIvGA7SxY';
 const bot = new TelegramBot(token, { polling: true });
 
-
-
 // Create an in-memory cache object
 let cache = {};
-
+console.log("************ TELEGRAM BOT WITH OPENAI INTEGRATED ************")
 
 bot.on('message', async (msg) => {
 
