@@ -3,8 +3,8 @@ const TelegramBot = require('node-telegram-bot-api');
 
 require('dotenv').config();
 
-const teleToken = process.env.WHATSAPP_SECRET;
-const token = '5853260702:AAHLHkDwFE3qpiX1TE98VJTxAcVIvGA7SxY';
+const teleToken = process.env.TELE_SECRET;
+const token = teleToken;
 const bot = new TelegramBot(token, { polling: true });
 
 // Create an in-memory cache object
